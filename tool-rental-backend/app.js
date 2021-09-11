@@ -1,24 +1,58 @@
 var express     = require("express"),
     app         = express(),
     bodyParser  = require("body-parser"),
-    mongoose    = require("mongoose"),
     Tools  = require("./models/tools");
-    // Comment     = require("./models/comment"),
-    // user        = require("./models/user");
-    
+const mongoose = require("mongoose");
+const home = require("./routes/home");
+const connection = require("./db");
+const Grid = require("gridfs-stream");    
+app.use("/file", home);
 
 
-    
-mongoose.connect("mongodb://localhost/tool-rental");
-app.use(bodyParser.urlencoded({extended: true}));
-// app.set("view engine", "ejs");
-// app.use(express.static(__dirname + "/public"));
 
-// app.use(function(req,res,next)//runs onalll routes and therefore need not explicity send it
-//     { 
-//        res.locals.currentUser=req.user;
-//        next();
-//     });
+let gfs;
+connection();
+
+const conn = mongoose.connection;
+conn.once("open", ()=> {
+    gfs = new mongoose.mongo.GridFSBucket(conn.db,{
+        bucketName:"photos"
+    });
+});
+
+// https://www.freecodecamp.org/news/gridfs-making-file-uploading-to-mongodb/
+
+// https://dev.to/jahangeer/how-to-upload-and-store-images-in-mongodb-database-c3f
+
+app.get("/file/:filename", (req, res) => {
+    // try {
+        const file = req.params.filename
+        
+        const files = gfs.find({filename:file}).toArray((err,files)=>{
+            console.log(files)
+            if(!files[0] || files.length===0){
+                return res.status(200).json(
+                    {
+                        success:false,
+                        message: 'No files available'
+                    }
+                )
+            }
+            if(files[0].contentType==="image/jpeg"||
+            files[0].contentType==="image/png"||
+            files[0].contentType==="image/svg+xml"){
+                gfs.openDownloadStreamByName(file).pipe(res);
+            }else{
+                res.status(404).json({
+                    err:'NOt an image'
+                })
+            }
+        })
+
+    // } catch (error) {
+    //     res.send("not found");
+    // }
+});
 
 
 // app.get("/", function(req, res){

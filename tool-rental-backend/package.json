@@ -4,14 +4,20 @@
   "description": "tool rental backend ",
   "main": "app.js",
   "scripts": {
-    "start":"nodemon app.js"
+    "start": "nodemon app.js"
   },
   "author": "akash",
   "license": "ISC",
   "dependencies": {
     "body-parser": "^1.19.0",
+    "crypto": "^1.0.1",
+    "crypto-browserify": "^3.11.0",
     "express": "^4.17.1",
-    "mongoose": "^6.0.5"
+    "gridfs-stream": "^1.1.1",
+    "method-override": "^3.0.0",
+    "mongoose": "^6.0.5",
+    "multer": "^1.4.3",
+    "multer-gridfs-storage": "^5.0.1"
   },
   "devDependencies": {
     "nodemon": "^2.0.12"
