@@ -1,24 +1,38 @@
-var express     = require("express"),
-    app         = express(),
-    bodyParser  = require("body-parser"),
-    Tools  = require("./models/tools");
+const express     = require("express");
+const app         = express();
+const  bodyParser  = require("body-parser");
 const mongoose = require("mongoose");
+const jwt = require("jsonwebtoken")
+const dotenv = require('dotenv');
+dotenv.config();
+
+//models
+const Tools  = require("./models/tools");
+const users  = require("./models/users");
+
+//routes
 const home = require("./routes/home");
-const connection = require("./db");
-const Grid = require("gridfs-stream");    
+const connection = require("./db"); 
+
+//middleware
+
+const auth = require("./middleware/auth")
+
+//routing
 app.use("/file", home);
 
-
-
+//db instatiate
 let gfs;
 connection();
-
 const conn = mongoose.connection;
 conn.once("open", ()=> {
     gfs = new mongoose.mongo.GridFSBucket(conn.db,{
         bucketName:"photos"
     });
 });
+
+
+app.use(bodyParser.json())
 
 // https://www.freecodecamp.org/news/gridfs-making-file-uploading-to-mongodb/
 
@@ -49,18 +63,12 @@ app.get("/file/:filename", (req, res) => {
             }
         })
 
-    // } catch (error) {
-    //     res.send("not found");
-    // }
 });
 
 
-// app.get("/", function(req, res){
-//     res.render("landing");
-// });
 
 //INDEX - show all campgrounds
-app.get("/upload/tools", function(req, res){
+app.get("/upload/tools",auth, function(req, res){
     // Get all campgrounds from DB
     let newTools = {
         name: "Hammer",
@@ -74,6 +82,9 @@ app.get("/upload/tools", function(req, res){
            console.log(err);
        } else {
           console.log("success");
+          res.status(200).json({
+              success:'true'
+          })
        }
     });
 });
@@ -91,144 +102,88 @@ app.get("/list/tools", function(req, res){
     });
 });
 
+app.post("/register",function(req,res)
+    {
+        const user = {
+            username:req.body.username,
+            password:req.body.password,
+            address:req.body.address,
+            number:req.body.number
+        } 
+        users.find({username:req.body.username}).then((data)=>{
+            if(data.length!=0){
 
-//CREATE - add new campground to DB
-// app.post("/campgrounds", function(req, res){
-//     // get data from form and add to campgrounds array
-//     var name = req.body.name;
-//     var image = req.body.image;
-//     var desc = req.body.description;
-//     var newCampground = {name: name, image: image, description: desc}
-//     // Create a new campground and save to DB
-//     Campground.create(newCampground, function(err, newlyCreated){
-//         if(err){
-//             console.log(err);
-//         } else {
-//             //redirect back to campgrounds page
-//             res.redirect("/campgrounds");
-//         }
-//     });
-// });
+                res.status(200).json({
+                    success:false,
+                    message:"User Already exists"
+                })
+            }else{
+                users.create(user).then((data)=>{
+                    res.status(200).json({
+                        success:true,
+                        message:"You are registered :))"
+                    })
+                }).catch((err)=>{
+                    res.status(500).json({
+                        success:false,
+                        message:"Something went wring :(("
+                    })
+                })
+            }
+        })
+        
+    });
 
-// //NEW - show form to create new campground
-// app.get("/campgrounds/new", function(req, res){
-//    res.render("campgrounds/new"); 
-// });
+    app.post("/login",function(req,res)
+    {
+        const user = {
+            username:req.body.username,
+            password:req.body.password,
+        } 
+        
+        users.find({username:req.body.username}).then((data)=>{
+            if(data.length!=0){
+                if(data[0].password==req.body.password){
+                    
+                    const token = jwt.sign(
+                        { user_id: data[0].username, email:data[0].email },
+                        process.env.TOKEN,
+                        {
+                          expiresIn: "2h",
+                        }
+                      );
 
-// // SHOW - shows more info about one campground
-// app.get("/campgrounds/:id", function(req, res){
-//     //find the campground with provided ID
-//     Campground.findById(req.params.id).populate("comments").exec(function(err, foundCampground){
-//         if(err){
-//             console.log(err);
-//         } else {
-//             console.log(foundCampground)
-//             //render show template with that campground
-//             res.render("campgrounds/show", {campground: foundCampground});
-//         }
-//     });
-// });
-
-
-// // ====================
-// // COMMENTS ROUTES
-// // ====================
-
-// app.get("/campgrounds/:id/comments/new", isLoggedIn  ,function(req, res){
-//     // find campground by id
-//     Campground.findById(req.params.id, function(err, campground){
-//         if(err){
-//             console.log(err);
-//         } else {
-//              res.render("comments/new", {campground: campground});
-//         }
-//     })
-// });
-
-// app.post("/campgrounds/:id/comments",isLoggedIn, function(req, res){
-//    //lookup campground using ID
-//    Campground.findById(req.params.id, function(err, campground){
-//        if(err){
-//            console.log(err);
-//            res.redirect("/campgrounds");
-//        } else {
-//         Comment.create(req.body.comment, function(err, comment){
-//            if(err){
-//                console.log(err);
-//            } else {
-//                campground.comments.push(comment);
-//                campground.save();
-//                res.redirect('/campgrounds/' + campground._id);
-//            }
-//         });
-//        }
-//    });
-//    //create new comment
-//    //connect new comment to campground
-//    //redirect campground show page
-// });
-
-
-// //AUTH ROUTES
-// app.get("/register",function(req,res)
-//     {
-//          res.render("register");
-//     });
-// app.post("/register",function(req,res)
-//     {
-//        user.register(new user({
-//             username:req.body.username
-//             }),req.body.password,function(err,User)
-//             {
-//                 if(err)
-//                    {
-//                        res.redirect("/register")
-                       
-//                    }
-//                 passport.authenticate("local")(req,res,function()
-//                    {
-//                      res.redirect("/campgrounds");   
-//                    });
-//             });
-       
-//     });
-    
-// //login
-// app.get("/login",function(req,res)
-//     {
-//        res.render("login");  
-//     });
-// app.post("/login",passport.authenticate("local",{
-//                              successRedirect:"/campgrounds",
-//                              failureRedircet:"/login"
-                             
-//                   }),function(req,res)
-//     { 
-         
-       
-//     });
-    
-// //logout
-
-// app.get("/logout",function(req,res)
-//    { 
-//       req.logout(); 
-//       res.redirect("/campgrounds");
-//    });
-   
-   
-// function isLoggedIn(req,res,next)
-//          {
-//               if(req.isAuthenticated())
-//                  { 
-//                      return next();
-//                  }
-//               res.redirect("/login");
-//          };
+                    res.status(200).json(
+                        {
+                            success:true,
+                            message:"Login Successful",
+                            token:token
+                        }
+                    )
+                }
+                else{
+                    res.status(401).json(
+                        {
+                            success:false,
+                            message:"Wrong password"
+                        }
+                    )
+                }
+                
+            }else{
+                res.status(401).json(
+                    {
+                        success:false,
+                        message:"Username does not exist , please register"
+                    }
+                )
+            }
+        })
+        
+    });
 
 
-
-app.listen(2000 , ()=>{
+app.listen(process.env.API_PORT, ()=>{
     
    console.log("The server has started on ");
 });
