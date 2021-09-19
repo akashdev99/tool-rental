@@ -4,6 +4,8 @@ const  bodyParser  = require("body-parser");
 const mongoose = require("mongoose");
 const jwt = require("jsonwebtoken")
 const dotenv = require('dotenv');
+const cookieParser = require('cookie-parser')
+const cors = require('cors');
 dotenv.config();
 
 //models
@@ -12,14 +14,21 @@ const users  = require("./models/users");
 
 //routes
 const home = require("./routes/home");
+const tool=require("./routes/tool")
 const connection = require("./db"); 
 
 //middleware
-
-const auth = require("./middleware/auth")
+const isLoggedin = require("./middleware/auth")
 
 //routing
 app.use("/file", home);
+app.use("/tool", tool);
+
+
+//parser
+app.use(bodyParser.json())
+app.use(cookieParser());
+app.use(cors());
 
 //db instatiate
 let gfs;
@@ -32,8 +41,6 @@ conn.once("open", ()=> {
 });
 
 
-app.use(bodyParser.json())
-
 // https://www.freecodecamp.org/news/gridfs-making-file-uploading-to-mongodb/
 
 // https://dev.to/jahangeer/how-to-upload-and-store-images-in-mongodb-database-c3f
@@ -43,7 +50,6 @@ app.get("/file/:filename", (req, res) => {
         const file = req.params.filename
         
         const files = gfs.find({filename:file}).toArray((err,files)=>{
-            console.log(files)
             if(!files[0] || files.length===0){
                 return res.status(200).json(
                     {
@@ -68,7 +74,7 @@ app.get("/file/:filename", (req, res) => {
 
 
 //INDEX - show all campgrounds
-app.get("/upload/tools",auth, function(req, res){
+app.get("/upload/tools",isLoggedin, function(req, res){
     // Get all campgrounds from DB
     let newTools = {
         name: "Hammer",
@@ -81,7 +87,6 @@ app.get("/upload/tools",auth, function(req, res){
        if(err){
            console.log(err);
        } else {
-          console.log("success");
           res.status(200).json({
               success:'true'
           })
@@ -152,6 +157,9 @@ app.post("/register",function(req,res)
                           expiresIn: "2h",
                         }
                       );
+                    
+
+                    res.cookie('token',token,{httpOnly:true});
 
                     res.status(200).json(
                         {
